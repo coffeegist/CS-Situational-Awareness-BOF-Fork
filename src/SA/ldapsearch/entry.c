@@ -95,6 +95,9 @@ LDAPControlA *FormatSDFlags(int iFlagValue)
   // Cleanup temporary berval.
   WLDAP32$ber_bvfree(pldctrl_value);
 
+  // Memory leak, need to free memz 
+  // Freeing will be easier if I just pass the pLControl pointer in by ref
+
   // Return the formatted LDAPControl data.
   return pLControl;
 }
@@ -217,6 +220,44 @@ void customAttributes(PCHAR pAttribute, PCHAR pValue)
         ADVAPI32$ConvertSidToStringSidA((PSID)tmp->bv_val, &sid);
         internal_printf("%s", sid);
         KERNEL32$LocalFree(sid);
+    }
+    else if (MSVCRT$strcmp(pAttribute, "nTSecurityDescriptor") == 0)
+    {
+        PBERVAL attr = (PBERVAL)pValue;
+        DWORD destSize;
+
+        BOOL base64 = CRYPT32$CryptBinaryToStringA(
+            (CONST BYTE*)attr->bv_val,
+            attr->bv_len,
+            CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+            NULL,
+            &destSize
+        );
+
+        // destSize should contain the size of the output buffer
+        char* base64String = (char*)MSVCRT$calloc(1, (SIZE_T)destSize);
+
+        // malloc error handling
+        if (base64String == NULL)
+        {
+            BeaconPrintf(CALLBACK_ERROR, "Error! Unable to allocate a buffer to Base64 encode the AP-REQ blob! Error: 0x%lx\n", KERNEL32$GetLastError());
+
+            // Return an error
+            return;
+        }
+        else
+        {
+            // Base64 encode the entire AP-REQ blob and output it
+            BOOL base64 = CRYPT32$CryptBinaryToStringA(
+                (CONST BYTE*)attr->bv_val,
+                attr->bv_len,
+                CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF,
+                base64String,
+                &destSize
+            );
+        }
+
+        internal_printf("%s", base64String);
     }
     else
     {
@@ -359,7 +400,10 @@ void ldapSearch(char * ldap_filter, char * ldap_attributes,	ULONG results_count,
             {
                 isbinary = FALSE;
                 // Get the string values.
-                if(MSVCRT$strcmp(pAttribute, "objectSid") == 0 || MSVCRT$strcmp(pAttribute, "objectGUID") == 0)
+                if (
+                    MSVCRT$strcmp(pAttribute, "objectSid") == 0
+                    || MSVCRT$strcmp(pAttribute, "objectGUID") == 0
+                    || MSVCRT$strcmp(pAttribute, "nTSecurityDescriptor") == 0)
                 {
                     ppValue = (char **)WLDAP32$ldap_get_values_lenA(pLdapConnection, pEntry, pAttribute); //not really a char **
                     isbinary = TRUE;
