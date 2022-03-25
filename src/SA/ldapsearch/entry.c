@@ -221,7 +221,8 @@ void customAttributes(PCHAR pAttribute, PCHAR pValue)
         internal_printf("%s", sid);
         KERNEL32$LocalFree(sid);
     }
-    else if (MSVCRT$strcmp(pAttribute, "nTSecurityDescriptor") == 0)
+    else if (MSVCRT$strcmp(pAttribute, "nTSecurityDescriptor") == 0
+        || MSVCRT$strcmp(pAttribute, "schemaIDGUID") == 0)
     {
         PBERVAL attr = (PBERVAL)pValue;
         DWORD destSize;
@@ -403,7 +404,8 @@ void ldapSearch(char * ldap_filter, char * ldap_attributes,	ULONG results_count,
                 if (
                     MSVCRT$strcmp(pAttribute, "objectSid") == 0
                     || MSVCRT$strcmp(pAttribute, "objectGUID") == 0
-                    || MSVCRT$strcmp(pAttribute, "nTSecurityDescriptor") == 0)
+                    || MSVCRT$strcmp(pAttribute, "nTSecurityDescriptor") == 0
+                    || MSVCRT$strcmp(pAttribute, "schemaIDGUID") == 0)
                 {
                     ppValue = (char **)WLDAP32$ldap_get_values_lenA(pLdapConnection, pEntry, pAttribute); //not really a char **
                     isbinary = TRUE;
